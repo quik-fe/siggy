@@ -6,6 +6,13 @@ export function onCleanup(fn: () => void): void {
   Scope.recordCleanup(fn);
 }
 
+export function onCatch(cb: (err: any, next: () => any) => any) {
+  if (!Scope.current) {
+    throw new Error("call onErrorCatch must be inside Scope.");
+  }
+  Scope.current._catcher = cb;
+}
+
 export function createEffect(fn: () => void): void;
 export function createEffect<T>(fn: (v: T) => T, value: T): void;
 export function createEffect(
@@ -13,8 +20,14 @@ export function createEffect(
   value?: unknown
 ): void {
   let prev = value;
+  const scope = new Scope();
   const off = Signal.subtle.untrack(() =>
-    batchedEffect(() => (prev = fn(prev)))
+    batchedEffect(() => {
+      scope.cleanup();
+      Scope.runWith(scope, () => {
+        prev = fn(prev);
+      });
+    })
   );
   Scope.recordCleanup(off);
 }
@@ -28,10 +41,14 @@ export function createComputed(
   options?: Signal.Options<unknown> & { value: unknown }
 ): Signal.Computed<unknown> {
   let prev = options?.value;
+  const scope = new Scope();
   const computation = () => {
-    const next = fn(prev);
-    prev = next;
-    return next;
+    scope.cleanup();
+    return Scope.runWith(scope, () => {
+      const next = fn(prev);
+      prev = next;
+      return next;
+    });
   };
   const computed = new Signal.Computed(computation, options);
   return computed;

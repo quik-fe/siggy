@@ -4,7 +4,7 @@ export { render } from "./render";
 export { sig } from "./Sig";
 export {
   createEffect,
-  createComputed as createMemo,
+  createComputed,
   onCleanup,
   createSignal,
   getScope,

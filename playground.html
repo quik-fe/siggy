@@ -1,61 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Siggy Playground</title>
-  <script type="importmap">
-    {
-      "imports": {
-        "signal-polyfill": "https://esm.sh/*signal-polyfill",
-        "scheduler-polyfill": "https://esm.sh/*scheduler-polyfill",
-        "signal-utils": "https://esm.sh/*signal-utils",
-        "signal-utils/": "https://esm.sh/*signal-utils/",
-        "siggy": "./dist/main.mjs"
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Siggy Playground</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "signal-polyfill": "https://esm.sh/*signal-polyfill",
+          "scheduler-polyfill": "https://esm.sh/*scheduler-polyfill",
+          "signal-utils": "https://esm.sh/*signal-utils",
+          "signal-utils/": "https://esm.sh/*signal-utils/",
+          "siggy": "./dist/main.mjs"
+        }
       }
-    }
-  </script>
-  <script type="module">
-    import * as Siggy from 'siggy';
+    </script>
+    <script type="module">
+      import * as Siggy from "siggy";
 
-    const $root = document.getElementById('root');
-    $root.innerText = "Siggy Playground loaded.";
+      const $root = document.getElementById("root");
+      $root.innerText = "Siggy Playground loaded.";
 
-    console.log("Module:", Siggy)
-  </script>
-  <script type="module">
-    import { createElement as h, sig, createSignal, createEffect, createComputed, onCleanup } from "siggy";
+      console.log("Module:", Siggy);
+    </script>
+    <script type="module">
+      import {
+        createElement as h,
+        sig,
+        createSignal,
+        createEffect,
+        createComputed,
+        onCleanup,
+        ErrorBoundary,
+        Suspense,
+      } from "siggy";
 
-    const counter = sig(0);
-    const isEven = sig(() => (counter() & 1) == 0);
-    const parity = sig(() => (isEven() ? "even" : "odd"));
-    // sig(() => {
-    //   console.log("isEven", isEven())
-    // });
-    // sig(() => {
-    //   console.log("parity", parity())
-    // });
+      const counter = sig(0);
+      const isEven = sig(() => (counter() & 1) == 0);
+      const parity = sig(() => (isEven() ? "even" : "odd"));
+      // sig(() => {
+      //   console.log("isEven", isEven())
+      // });
+      // sig(() => {
+      //   console.log("parity", parity())
+      // });
 
-    function MyComponent({ message, counter }) {
-      return h('div', null,
-        h('h1', { "data-parity": parity }, `The parity is: `, parity),
-        h('p', null, `Message: ${message}`),
-        h('p', null, `Counter: `, counter),
-        h('button', { onClick: () => counter(counter() + 1) }, 'Increment Counter'),
-      );
-    }
+      async function FakeLazyComponent() {
+        await new Promise((r) => setTimeout(r, 1000));
+        return "FakeLazyComponent render done.";
+      }
 
+      function ErrorRender() {
+        if (Math.random() > 0.5) {
+          throw new Error("just error");
+        }
+        return "ok";
+      }
 
-    const app = h(MyComponent, { message: "Hello World", counter: counter });
-    document.body.appendChild(app);
+      function MyComponent({ message, counter }) {
+        return h(
+          "div",
+          null,
+          // h("h1", { "data-parity": parity }, `The parity is: `, parity),
+          // h("p", null, `Message: ${message}`),
+          // h("p", null, `Counter: `, counter),
+          // h(
+          //   "button",
+          //   { onClick: () => counter(counter() + 1) },
+          //   "Increment Counter"
+          // ),
+          // h(ErrorBoundary, {
+          //   render: () => h(ErrorRender),
+          //   fallback: ({ error, reset }) =>
+          //     h(
+          //       "div",
+          //       {},
+          //       `Error: ${error.message}`,
+          //       h("br"),
+          //       h("span", null, Date.now()),
+          //       h("br"),
+          //       h(
+          //         "button",
+          //         {
+          //           onClick: reset,
+          //         },
+          //         "reset"
+          //       )
+          //     ),
+          // })
+          h(Suspense, {
+            render: () => h(FakeLazyComponent),
+            fallback: () => "loading...",
+          })
+        );
+      }
 
-    // setInterval(() => counter.set(counter.get() + 1), 1000);
-  </script>
-</head>
+      const app = h(MyComponent, { message: "Hello World", counter: counter });
+      document.body.appendChild(app);
 
-<body>
-  <div id="root"></div>
-</body>
+      // setInterval(() => counter.set(counter.get() + 1), 1000);
+    </script>
+  </head>
 
+  <body>
+    <div id="root"></div>
+  </body>
 </html>

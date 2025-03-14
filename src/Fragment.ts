@@ -61,8 +61,6 @@ export class Fragment extends Scope {
 
   _version = 0;
 
-  _parent: Fragment | null = null;
-
   constructor(
     readonly render: () => {
       nodes: Node[];
@@ -73,8 +71,6 @@ export class Fragment extends Scope {
 
     Fragment.anchorToFragment.set(this._anchor, this);
     Fragment.fgNodeToFragment.set(this._frag, this);
-
-    this._parent = Fragment.current as Fragment;
 
     this._frag.appendChild(this._anchor);
     this._dispose_effect = Signal.subtle.untrack(() =>
@@ -107,9 +103,13 @@ export class Fragment extends Scope {
   ) {
     Scope.runWith(this, () => {
       Signal.subtle.untrack(this.cleanup.bind(this));
-      const { nodes, cleanups } = render();
-      Signal.subtle.untrack(this.patch.bind(this, nodes));
-      this._cleanups = [...this._cleanups, ...cleanups];
+      try {
+        const { nodes, cleanups } = render();
+        Signal.subtle.untrack(this.patch.bind(this, nodes));
+        this._cleanups = [...this._cleanups, ...cleanups];
+      } catch (error) {
+        this.throw(error);
+      }
     });
   }
 
@@ -134,6 +134,7 @@ export class Fragment extends Scope {
     this.cleanup();
     this._dispose_effect();
     this.disconnect();
+    this.dispose();
     this._anchor.parentNode?.removeChild(this._anchor);
     Fragment.anchorToFragment.delete(this._anchor);
     Fragment.fgNodeToFragment.delete(this._frag);

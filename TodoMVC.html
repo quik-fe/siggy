@@ -1,331 +1,375 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TodoMVC - Siggy</title>
-  <script type="importmap">
-    {
-      "imports": {
-        "signal-polyfill": "https://esm.sh/*signal-polyfill",
-        "scheduler-polyfill": "https://esm.sh/*scheduler-polyfill",
-        "signal-utils": "https://esm.sh/*signal-utils",
-        "signal-utils/": "https://esm.sh/*signal-utils/",
-        "siggy": "./dist/main.mjs"
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TodoMVC - Siggy</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "signal-polyfill": "https://esm.sh/*signal-polyfill",
+          "scheduler-polyfill": "https://esm.sh/*scheduler-polyfill",
+          "signal-utils": "https://esm.sh/*signal-utils",
+          "signal-utils/": "https://esm.sh/*signal-utils/",
+          "siggy": "./dist/main.mjs"
+        }
       }
-    }
-  </script>
-  <script src="https://unpkg.com/@babel/standalone@latest/babel.min.js"></script>
-  <script type="text/babel" data-type="module" data-presets="react">
-    import { createElement, sig, createInterval, onCleanup, Animation } from "siggy";
+    </script>
+    <script src="https://unpkg.com/@babel/standalone@latest/babel.min.js"></script>
+    <script type="text/babel" data-type="module" data-presets="react">
+      import {
+        createElement,
+        sig,
+        createInterval,
+        onCleanup,
+        Animation,
+      } from "siggy";
 
-    window.React = { createElement };
+      window.React = { createElement };
 
-    // Todo 数据结构
-    class Todo {
-      constructor(text) {
-        this.text = text;
-        this.completed = sig(false);
-        this.createdAt = Date.now(); // 添加时间戳
-      }
-    }
-
-    // 状态管理
-    const todos = sig([
-      new Todo("Learn Siggy"),
-      new Todo("Build a TodoMVC App"),
-      new Todo("Try it!"),
-    ]);
-    const newTodoText = sig("");
-    const filter = sig("all");
-
-    // 格式化时间函数
-    function formatTimeAgo(timestamp) {
-      const seconds = Math.floor((Date.now() - timestamp) / 1000);
-
-      if (seconds < 60) {
-        return `${seconds} seconds ago`;
+      // Todo 数据结构
+      class Todo {
+        constructor(text) {
+          this.text = text;
+          this.completed = sig(false);
+          this.createdAt = Date.now(); // 添加时间戳
+        }
       }
 
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) {
-        return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+      // 状态管理
+      const todos = sig([
+        new Todo("Learn Siggy"),
+        new Todo("Build a TodoMVC App"),
+        new Todo("Try it!"),
+      ]);
+      const newTodoText = sig("");
+      const filter = sig("all");
+
+      // 格式化时间函数
+      function formatTimeAgo(timestamp) {
+        const seconds = Math.floor((Date.now() - timestamp) / 1000);
+
+        if (seconds < 60) {
+          return `${seconds} seconds ago`;
+        }
+
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) {
+          return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+        }
+
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) {
+          return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+        }
+
+        const days = Math.floor(hours / 24);
+        return `${days} day${days > 1 ? "s" : ""} ago`;
       }
 
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) {
-        return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+      // 操作函数
+      function addTodo() {
+        if (newTodoText().trim()) {
+          const todo = new Todo(newTodoText().trim());
+          todos([...todos(), todo]);
+          newTodoText("");
+        }
       }
 
-      const days = Math.floor(hours / 24);
-      return `${days} day${days > 1 ? 's' : ''} ago`;
-    }
-
-    // 操作函数
-    function addTodo() {
-      if (newTodoText().trim()) {
-        const todo = new Todo(newTodoText().trim());
-        todos([...todos(), todo]);
-        newTodoText("");
+      function toggleTodo(todo) {
+        todo.completed(!todo.completed());
       }
-    }
 
-    function toggleTodo(todo) {
-      todo.completed(!todo.completed());
-    }
-
-    function deleteTodo(todo) {
-      todos(todos().filter(t => t !== todo));
-    }
-
-    function moveTodoUp(todo) {
-      const index = todos().indexOf(todo);
-      if (index > 0) {
-        const newTodos = [...todos()];
-        [newTodos[index - 1], newTodos[index]] = [newTodos[index], newTodos[index - 1]];
-        todos(newTodos);
+      function deleteTodo(todo) {
+        todos(todos().filter((t) => t !== todo));
       }
-    }
 
-    function moveTodoDown(todo) {
-      const index = todos().indexOf(todo);
-      if (index < todos().length - 1) {
-        const newTodos = [...todos()];
-        [newTodos[index + 1], newTodos[index]] = [newTodos[index], newTodos[index + 1]];
-        todos(newTodos);
+      function moveTodoUp(todo) {
+        const index = todos().indexOf(todo);
+        if (index > 0) {
+          const newTodos = [...todos()];
+          [newTodos[index - 1], newTodos[index]] = [
+            newTodos[index],
+            newTodos[index - 1],
+          ];
+          todos(newTodos);
+        }
       }
-    }
 
-    function filteredTodos() {
-      if (filter() === "all") return todos();
-      if (filter() === "active") return todos().filter(todo => !todo.completed());
-      if (filter() === "completed") return todos().filter(todo => todo.completed());
-    }
+      function moveTodoDown(todo) {
+        const index = todos().indexOf(todo);
+        if (index < todos().length - 1) {
+          const newTodos = [...todos()];
+          [newTodos[index + 1], newTodos[index]] = [
+            newTodos[index],
+            newTodos[index + 1],
+          ];
+          todos(newTodos);
+        }
+      }
 
-    function TimeAgo({
-      createdAt
-    }) {
-      const text = sig(formatTimeAgo(createdAt));
-      createInterval(
-        () => {
+      function filteredTodos() {
+        if (filter() === "all") return todos();
+        if (filter() === "active")
+          return todos().filter((todo) => !todo.completed());
+        if (filter() === "completed")
+          return todos().filter((todo) => todo.completed());
+      }
+
+      function TimeAgo({ createdAt }) {
+        const text = sig(formatTimeAgo(createdAt));
+        createInterval(() => {
           text(formatTimeAgo(createdAt));
-        },
-        1000
-      )
-      onCleanup(() => {
-        console.log("[cleanup] <TimeAgo/>");
-      });
-      return (
-        <small style={{
-          display: 'block',
-          fontSize: '12px',
-          color: '#888'
-        }}>
-          {text}
-        </small>
-      );
-    }
-
-    function Portal({ children, style }) {
-      const dom = document.createElement('div');
-      document.body.appendChild(dom);
-      onCleanup(() => {
-        console.log("[cleanup] <Portal/>");
-      });
-      return createElement(
-        dom,
-        {
-          style: {
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            pointerEvents: 'none',
-            ...style
-          }
-        },
-        ...children
-      )
-    }
-
-    // UI 组件
-    function TodoItem({ todo }) {
-      return (
-        <li style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '10px',
-          borderBottom: '1px solid #eee',
-          backgroundColor: todo.completed() ? '#f5f5f5' : 'white'
-        }}>
-          <input
-            type="checkbox"
-            checked={todo.completed}
-            onChange={() => toggleTodo(todo)}
-            style={{ marginRight: '10px' }}
-          />
-          <span style={{
-            flex: 1,
-            textDecoration: todo.completed() ? 'line-through' : 'none',
-            color: todo.completed() ? '#888' : '#333',
-            cursor: 'pointer'
-          }}
-            onClick={() => toggleTodo(todo)}
-          >
-            {todo.text}
-            <TimeAgo createdAt={todo.createdAt} />
-          </span>
-          <div style={{ display: 'flex', gap: '5px' }}>
-            <button
-              onClick={() => moveTodoUp(todo)}
-              style={{ padding: '5px', backgroundColor: '#eee', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
-            >↑</button>
-            <button
-              onClick={() => moveTodoDown(todo)}
-              style={{ padding: '5px', backgroundColor: '#eee', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
-            >↓</button>
-            <button
-              onClick={() => deleteTodo(todo)}
-              style={{ padding: '5px', backgroundColor: '#ff4444', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
-            >×</button>
-          </div>
-        </li>
-      );
-    }
-
-    function PortalDemo() {
-      const show = sig(true);
-      return <>
-        <button onClick={() => show(x => !x)}>{() => show() ? "hidden" : "show"}</button>
-        {
-          () => show() ? <Portal>
-            Portal: <TimeAgo createdAt={Date.now()} />
-          </Portal> : null
-        }
-      </>
-    }
-
-    function CheckboxButton({ value, children, active }) {
-      return <button
-        onClick={() => value(active)}
-        style={{
-          padding: '5px 10px',
-          backgroundColor: value() === active ? '#4CAF50' : '#ddd',
-          color: value() === active ? 'white' : '#333',
-          border: 'none',
-          borderRadius: '3px',
-          cursor: 'pointer'
-        }}
-      >{children}</button>
-    }
-
-    async function* AsyncDemo() {
-      const text = "这是一个异步生成器的演示组件: 滚动显示文字";
-      let start = 0;
-      let length = 5;
-      while (1) {
-        yield <div style={{
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-          textOverflow: 'ellipsis'
-        }}>
-          {text.slice(start, start + length)}
-        </div>
-        start += 1;
-        if (start >= text.length) {
-          start = 0;
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-
-    function TodoApp() {
-      return (
-        <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
-          <AsyncDemo />
-          <header style={{ marginBottom: '20px' }}>
-            <h1 style={{ textAlign: 'center', color: '#333' }}>Todos</h1>
-            <div style={{ display: 'flex' }}>
-              <input
-                type="text"
-                placeholder="What needs to be done?"
-                value={newTodoText}
-                oninput={e => newTodoText(e.target.value)}
-                onkeydown={e => {
-                  if (e.key === "Enter") {
-                    addTodo();
-                    e.target.value = "";
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  fontSize: '16px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  marginRight: '10px'
-                }}
-              />
-            </div>
-          </header>
-          <Animation
-            duration={500}
-            fill="both"
-            direction={"normal"}
-            keyframes={[
-              { opacity: 0 },
-              { opacity: 1 },
-            ]}
-            ref={({ animation }) => {
-              createInterval(() => animation.play(), 1000)
+        }, 1000);
+        onCleanup(() => {
+          console.log("[cleanup] <TimeAgo/>");
+        });
+        return (
+          <small
+            style={{
+              display: "block",
+              fontSize: "12px",
+              color: "#888",
             }}
           >
-            <TimeAgo createdAt={Date.now()} />
-          </Animation>
+            {text}
+          </small>
+        );
+      }
 
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {() => filteredTodos().map(todo => <TodoItem todo={todo} />)}
-          </ul>
+      function Portal({ children, style }) {
+        const dom = document.createElement("div");
+        document.body.appendChild(dom);
+        onCleanup(() => {
+          console.log("[cleanup] <Portal/>");
+        });
+        return createElement(
+          dom,
+          {
+            style: {
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              pointerEvents: "none",
+              ...style,
+            },
+          },
+          ...children
+        );
+      }
 
-          <footer style={{
-            marginTop: '20px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '10px',
-            backgroundColor: '#f5f5f5',
-            borderRadius: '4px'
-          }}>
-            <span>{() => todos().length} items left</span>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <CheckboxButton value={filter} active={"all"}>
-                All
-              </CheckboxButton>
-              <CheckboxButton value={filter} active={"active"}>
-                Active
-              </CheckboxButton>
-              <CheckboxButton value={filter} active={"completed"}>
-                Completed
-              </CheckboxButton>
+      // UI 组件
+      function TodoItem({ todo }) {
+        return (
+          <li
+            style={{
+              display: "flex",
+              alignItems: "center",
+              padding: "10px",
+              borderBottom: "1px solid #eee",
+              backgroundColor: todo.completed() ? "#f5f5f5" : "white",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={todo.completed}
+              onChange={() => toggleTodo(todo)}
+              style={{ marginRight: "10px" }}
+            />
+            <span
+              style={{
+                flex: 1,
+                textDecoration: todo.completed() ? "line-through" : "none",
+                color: todo.completed() ? "#888" : "#333",
+                cursor: "pointer",
+              }}
+              onClick={() => toggleTodo(todo)}
+            >
+              {todo.text}
+              <TimeAgo createdAt={todo.createdAt} />
+            </span>
+            <div style={{ display: "flex", gap: "5px" }}>
+              <button
+                onClick={() => moveTodoUp(todo)}
+                style={{
+                  padding: "5px",
+                  backgroundColor: "#eee",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer",
+                }}
+              >
+                ↑
+              </button>
+              <button
+                onClick={() => moveTodoDown(todo)}
+                style={{
+                  padding: "5px",
+                  backgroundColor: "#eee",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer",
+                }}
+              >
+                ↓
+              </button>
+              <button
+                onClick={() => deleteTodo(todo)}
+                style={{
+                  padding: "5px",
+                  backgroundColor: "#ff4444",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "3px",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
             </div>
-          </footer>
-        </div>
-      );
-    }
+          </li>
+        );
+      }
 
-    document.body.appendChild(
-      <TodoApp />
-    );
-  </script>
+      function PortalDemo() {
+        const show = sig(true);
+        return (
+          <>
+            <button onClick={() => show((x) => !x)}>
+              {() => (show() ? "hidden" : "show")}
+            </button>
+            {() =>
+              show() ? (
+                <Portal>
+                  Portal: <TimeAgo createdAt={Date.now()} />
+                </Portal>
+              ) : null
+            }
+          </>
+        );
+      }
 
+      function CheckboxButton({ value, children, active }) {
+        return (
+          <button
+            onClick={() => value(active)}
+            style={{
+              padding: "5px 10px",
+              backgroundColor: value() === active ? "#4CAF50" : "#ddd",
+              color: value() === active ? "white" : "#333",
+              border: "none",
+              borderRadius: "3px",
+              cursor: "pointer",
+            }}
+          >
+            {children}
+          </button>
+        );
+      }
 
+      async function* AsyncDemo() {
+        const text = "这是一个异步生成器的演示组件: 滚动显示文字";
+        let start = 0;
+        let length = 5;
+        while (1) {
+          yield (
+            <div
+              style={{
+                overflow: "hidden",
+                whiteSpace: "nowrap",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {text.slice(start, start + length)}
+            </div>
+          );
+          start += 1;
+          if (start >= text.length) {
+            start = 0;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
 
-</head>
+      function TodoApp() {
+        return (
+          <div style={{ maxWidth: "600px", margin: "0 auto", padding: "20px" }}>
+            <AsyncDemo />
+            <header style={{ marginBottom: "20px" }}>
+              <h1 style={{ textAlign: "center", color: "#333" }}>Todos</h1>
+              <div style={{ display: "flex" }}>
+                <input
+                  type="text"
+                  placeholder="What needs to be done?"
+                  value={newTodoText}
+                  oninput={(e) => newTodoText(e.target.value)}
+                  onkeydown={(e) => {
+                    if (e.key === "Enter") {
+                      addTodo();
+                      e.target.value = "";
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "10px",
+                    fontSize: "16px",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    marginRight: "10px",
+                  }}
+                />
+              </div>
+            </header>
+            <Animation
+              duration={500}
+              fill="both"
+              direction={"normal"}
+              keyframes={[{ opacity: 0 }, { opacity: 1 }]}
+              ref={({ animation }) => {
+                createInterval(() => animation.play(), 1000);
+              }}
+            >
+              <TimeAgo createdAt={Date.now()} />
+            </Animation>
 
-<body>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {() => filteredTodos().map((todo) => <TodoItem todo={todo} />)}
+            </ul>
 
-</body>
+            <footer
+              style={{
+                marginTop: "20px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px",
+                backgroundColor: "#f5f5f5",
+                borderRadius: "4px",
+              }}
+            >
+              <span>{() => todos().length} items left</span>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <CheckboxButton value={filter} active={"all"}>
+                  All ({() => todos().length})
+                </CheckboxButton>
+                <CheckboxButton value={filter} active={"active"}>
+                  Active ({() => todos().filter((x) => !x.completed()).length})
+                </CheckboxButton>
+                <CheckboxButton value={filter} active={"completed"}>
+                  Completed ({() => todos().filter((x) => x.completed()).length}
+                  )
+                </CheckboxButton>
+              </div>
+            </footer>
+          </div>
+        );
+      }
 
+      document.body.appendChild(<TodoApp />);
+    </script>
+  </head>
+
+  <body></body>
 </html>

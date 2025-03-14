@@ -1,4 +1,4 @@
-import { Fragment } from "./Fragment";
+import { Scope } from "./Scope";
 
 const CONTEXT = Symbol("CONTEXT");
 
@@ -8,7 +8,7 @@ export type InjectionKey<T> = symbol & InjectionConstraint<T>;
 const GLOBAL = {} as Record<InjectionKey<any> | string, any>;
 
 export function provide<T>(key: InjectionKey<T> | string, value: T): void {
-  const current = Fragment.current as Fragment & {
+  const current = Scope.current as Scope & {
     [CONTEXT]: Record<InjectionKey<T> | string, any>;
   };
   if (!current) {
@@ -34,8 +34,8 @@ export function inject(
   defaultValue?: unknown,
   treatDefaultAsFactory = false
 ) {
-  let current = Fragment.current as
-    | (Fragment & {
+  let current = Scope.current as
+    | (Scope & {
         [CONTEXT]: Record<InjectionKey<any> | string, any>;
       })
     | null;

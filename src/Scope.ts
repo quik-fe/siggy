@@ -37,6 +37,41 @@ export class Scope {
     }
   }
 
+  _parent: Scope | null = null;
+  _disposed = new AbortController();
+
+  _catcher: ((err: any, next: () => any) => any) | null = null;
+
+  constructor() {
+    this._parent = Scope.current;
+    if (this._parent) {
+      this._parent._disposed.signal.addEventListener("abort", () => {
+        this._disposed.abort();
+      });
+    }
+  }
+
+  throw(err1: any) {
+    const next = (err2 = err1) => {
+      if (this._parent) {
+        this._parent.throw(err2);
+        return;
+      }
+      throw err2;
+    };
+    if (this._catcher) {
+      this._catcher(err1, next);
+      return;
+    }
+    next();
+  }
+
+  dispose() {
+    if (this._disposed.signal.aborted) return;
+    this._disposed.abort();
+    this.cleanup();
+  }
+
   _cleanups: (() => void)[] = [];
   cleanup() {
     if (this._cleanups.length === 0) return;

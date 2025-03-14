@@ -33,19 +33,24 @@ function renderAny(x: any): RenderedElement {
 function isAsyncGenerator(fn: any): fn is AsyncGeneratorFunction {
   return fn && fn.constructor.name === "AsyncGeneratorFunction";
 }
+function isAsyncFunction(fn: any): fn is (...args: any[]) => Promise<any> {
+  return fn && fn.constructor.name === "AsyncFunction";
+}
 
 function renderFunctionResult(result: any) {
   const values = Array.isArray(result) ? result : [result];
-  return values.flatMap(render).reduce(
-    ({ nodes, cleanups }, cur) => ({
-      nodes: [...nodes, cur.node],
-      cleanups: [...cleanups, cur.cleanup].filter((x) => x !== noop),
-    }),
-    { nodes: [], cleanups: [] } as {
-      nodes: Node[];
-      cleanups: (() => void)[];
-    }
-  );
+  return values
+    .flatMap((x) => render(x))
+    .reduce(
+      ({ nodes, cleanups }, cur) => ({
+        nodes: [...nodes, cur.node],
+        cleanups: [...cleanups, cur.cleanup].filter((x) => x !== noop),
+      }),
+      { nodes: [], cleanups: [] } as {
+        nodes: Node[];
+        cleanups: (() => void)[];
+      }
+    );
 }
 
 function renderFunction(fn: (props?: any) => any, props?: any) {
@@ -110,6 +115,39 @@ function renderAsyncGenerator(fn: AsyncGeneratorFunction, props?: any) {
   };
 }
 
+class AsyncFragment extends Fragment {
+  constructor(
+    readonly fn: (props?: any) => Promise<any>,
+    readonly props?: any
+  ) {
+    super(() => {
+      const promise = fn(props);
+      queueMicrotask(async () => {
+        this.throw(promise);
+        const v1 = this._version;
+        const result = await promise;
+        if (v1 != this._version) return;
+        if (this._disposed.signal.aborted) return;
+        this.update(() => renderFunctionResult(result));
+      });
+      return {
+        cleanups: [],
+        nodes: [],
+      };
+    });
+  }
+}
+
+function renderAsyncFunction(fn: (props?: any) => Promise<any>, props?: any) {
+  const frag = new AsyncFragment(fn, props);
+  frag._source = fn;
+  return {
+    cleanup: frag.unmount.bind(frag),
+    node: frag._frag,
+    frag,
+  };
+}
+
 // 简化逻辑使用的值，实际无任何意义
 const NoopNode = document.createDocumentFragment();
 
@@ -132,6 +170,9 @@ export function render(value: any, props?: any): RenderedElement {
   if (typeof value === "function") {
     if (isAsyncGenerator(value)) {
       return renderAsyncGenerator(value, props);
+    }
+    if (isAsyncFunction(value)) {
+      return renderAsyncFunction(value, props);
     }
     return renderFunction(value, props);
   }
